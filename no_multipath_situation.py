@@ -7,6 +7,9 @@ this script using to estimate parameters in no multi path situation formula
 import numpy as np
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
+from scipy.stats import norm
+import scipy.stats
+
 
 wired_signal_speed = 222222222.222       #4.5ns/meter
 adapter_length = 0.1
@@ -22,57 +25,72 @@ def read_data(distance):
     time = np.array(time_list)
     return time
 
-def negative_log_likelihood(params, data):
-    m, Q, T_los, T_waiting = params
-    log_likelihood = 0.0
-    for x in data:
-        log_likelihood += -0.5 * np.log(2 * np.pi * Q**2) - ((x - T_los - T_waiting - m)**2) / (2 * Q**2)
-    return -log_likelihood
-
-def maximum_likelihood_estimation_m_Q(distance,data):
-    T_los = (distance + adapter_length)*2/wired_signal_speed*16000000
-    T_waiting = 16000
-
-    initial_guess = [np.mean(data)-T_los-T_waiting-10, np.var(data)*0.5-1, T_los, T_waiting]
-
-    result = minimize(negative_log_likelihood, initial_guess, args=(data,), method='L-BFGS-B')
-
-    estimated_m = result.x[0]
-    estimated_Q = result.x[1]
-
-    return estimated_m,estimated_Q
-
-data1 = read_data(1)
-
-estimate_m, estimate_Q = maximum_likelihood_estimation_m_Q(1,data1)
-print(estimate_m,estimate_Q)
-
 m_list = []
-my_m_list = []
 Q_list = []
-my_Q_list = []
-
+means = []
+varance = []
 for i in distance_list:
     data = read_data(i)
-    estimate_m, estimate_Q = maximum_likelihood_estimation_m_Q(i,data)
     data_mean = np.mean(data)
     data_var = np.var(data)
     T_los = (i + adapter_length)*2/wired_signal_speed*16000000
     T_waiting = 16000
+    means.append(data_mean)
+    varance.append(data_var)
+    m_list.append(data_mean - T_los - T_waiting)
+    Q_list.append(data_var)
 
-    m_list.append(estimate_m)
-    my_m_list.append(data_mean - T_los - T_waiting)
-    Q_list.append(estimate_Q)
-    my_Q_list.append(data_var**0.5)
+def pdf_distance(params):
+    """计算新正态分布与观测数据的 KL 散度之和"""
+    mu, sigma = params
+    kl_divergences = []
+
+    for i in range(len(m_list)):
+        mean_i = m_list[i]
+        variance_i = Q_list[i]
+        
+        distance_between_pdf = (mu-mean_i)**2 + (sigma - np.sqrt(variance_i))**2
+
+        print(distance_between_pdf)
+        kl_divergences.append(distance_between_pdf)
+
+    return np.sum(kl_divergences)
+
+# 初始化新正态分布的参数 
+mu_init, sigma_init = 4000, 1
+
+# 最小化 KL 散度之和
+result = minimize(pdf_distance, [mu_init, sigma_init])
+
+# 获取优化后的参数
+mu_opt, sigma_opt = result.x
+print(mu_opt, sigma_opt)
+
+traditional_pre = []
+new_model_pre = []
+for i in means:
+    traditional_pre.append(((i-20074.659)/2)/16000000*222222222.222)
+    new_model_pre.append(((i - T_waiting - mu_opt)/2)/16000000*wired_signal_speed)
+
+def compute_err(distance_list, pre_list):
+    error_list = []
+    for i in range(len(distance_list)):
+        error = np.abs(distance_list[i] - pre_list[i])
+        error_list.append(error)
+    
+    return np.mean(error_list)
 
 plt.figure()
-ax = plt.subplot(211)
-ax.plot(distance_list, m_list, c = 'r', label='m estimate value')
-ax.plot(distance_list, my_m_list, c = 'b', label='simple m estimate value')
+ax = plt.subplot(111)
+ax.plot(distance_list, traditional_pre, c = 'b', label = 'traditional error={}'.format(compute_err(distance_list,traditional_pre)))
+ax.plot(distance_list, new_model_pre, c = 'y', label = 'new_model error={}'.format(compute_err(distance_list,new_model_pre)))
+ax.plot(distance_list, distance_list, c = 'r', label = 'true distance')
+ax.plot(distance_list, [i+1 for i in distance_list], c = 'r', linestyle = '--', label = '+1 error boundray')
+ax.plot(distance_list, [i-1 for i in distance_list], c = 'r', linestyle = '--', label = '-1 error boundray')
+ax.set_xlabel('true distance')
+ax.set_ylabel('predict distance')
+ax.set_title('new model in wired experiment with error based time')
 
-ax = plt.subplot(212)
-ax.plot(distance_list, Q_list, c = 'r', label='Q estimate value')
-ax.plot(distance_list, my_Q_list, c = 'b', label='simple Q estimate value')
 
 plt.legend()
 plt.show()
