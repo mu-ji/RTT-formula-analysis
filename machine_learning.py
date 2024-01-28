@@ -62,8 +62,8 @@ def generate_train_test_y():
     return train_y, test_y
 
 
-train_x = data_process_ML('train_set/indoor_with_people_walking_train_set.txt')
-test_x = data_process_ML('test_set/indoor_with_people_walking_test_set.txt')
+train_x = data_process_ML('train_set/outdoor_train_set.txt')
+test_x = data_process_ML('test_set/outdoor_test_set.txt')
 train_y,test_y = generate_train_test_y()
 
 ridge_model = ridge_training(train_x,train_y)
@@ -72,8 +72,11 @@ ridge_predictions = ridge_predicting(ridge_model,test_x)
 lasso_model = lasso_training(train_x,train_y)
 lasso_predictions = lasso_predicting(lasso_model,test_x)
 
-ridge_error = ridge_predictions.reshape(20, 11)
-lasso_error = lasso_predictions.reshape(20, 11)
+ridge_error = ridge_predictions - test_y
+lasso_error = lasso_predictions.reshape((220,1)) - test_y
+
+ridge_error = ridge_error.reshape(20, 11)
+lasso_error = lasso_error.reshape(20, 11)
 
 boxprops = dict(facecolor='lightblue', color='blue')
 plt.boxplot(ridge_error,positions=[i for i in range(1,23,2)],patch_artist=True, boxprops=boxprops)
@@ -88,4 +91,5 @@ labels = (['{} meters'.format(i) for i in range(1,12)])
 plt.xticks([i+0.5 for i in range(1,23,2)], labels)
 plt.title('Boxplot of errors in different distance')
 plt.ylabel('error(meters)')
+plt.grid()
 plt.show()
