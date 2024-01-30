@@ -44,7 +44,11 @@ def data_process_ML(train_set_file):
         X = np.vstack((X, np.array([rtt_mean,rtt_var,rssi_mean,rssi_var])))
 
     X = X[1:,:]  #去掉第一行的0
-    return X
+
+    degree = 2
+    poly = PolynomialFeatures(degree=degree)
+    X_poly = poly.fit_transform(X)
+    return X_poly
 
 def generate_train_test_y():
     distance_list = [i for i in range(1,12)]
@@ -61,9 +65,30 @@ def generate_train_test_y():
     test_y = test_y[1:,:]
     return train_y, test_y
 
+def transform_error(error_array):
+    error_list = []
+    for i in range(11):
+        error_list.append(error_array.reshape(220,)[i*20:(i+1)*20])
+    error_array = np.array(error_list).T
+    return error_array
+
+def traditional_prediction(data):
+    prediction_list = []
+    for i in range(len(data)):
+        prediction = (data[i][1] - 20074.659)/2*300000000/16000000*0.4
+        prediction_list.append(np.array(prediction))
+    predictions = np.array(prediction_list)
+    return predictions
 
 train_x = data_process_ML('train_set/outdoor_train_set.txt')
 test_x = data_process_ML('test_set/outdoor_test_set.txt')
+
+#train_x = data_process_ML('train_set/indoor_with_people_walking_train_set.txt')
+#test_x = data_process_ML('test_set/indoor_with_people_walking_test_set.txt')
+
+#train_x = data_process_ML('train_set/indoor_without_people_walking_train_set.txt')
+#test_x = data_process_ML('test_set/indoor_without_people_walking_test_set.txt')
+
 train_y,test_y = generate_train_test_y()
 
 ridge_model = ridge_training(train_x,train_y)
@@ -73,23 +98,31 @@ lasso_model = lasso_training(train_x,train_y)
 lasso_predictions = lasso_predicting(lasso_model,test_x)
 
 ridge_error = ridge_predictions - test_y
+ridge_error = transform_error(ridge_error)
 lasso_error = lasso_predictions.reshape((220,1)) - test_y
+lasso_error = transform_error(lasso_error)
 
-ridge_error = ridge_error.reshape(20, 11)
-lasso_error = lasso_error.reshape(20, 11)
+traditional_predictions = traditional_prediction(test_x)
+traditional_error = traditional_predictions.reshape((220,1)) - test_y
+traditional_error = transform_error(traditional_error)
+
+
 
 boxprops = dict(facecolor='lightblue', color='blue')
-plt.boxplot(ridge_error,positions=[i for i in range(1,23,2)],patch_artist=True, boxprops=boxprops)
+plt.boxplot(ridge_error,positions=[i for i in range(1,33,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
 boxprops = dict(facecolor='red', color='maroon')
-plt.boxplot(lasso_error,positions=[i for i in range(2,23,2)],patch_artist=True, boxprops=boxprops)
+plt.boxplot(lasso_error,positions=[i for i in range(2,33,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
+boxprops = dict(facecolor='green', color='green')
+plt.boxplot(traditional_error,positions=[i for i in range(3,34,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
 
 rect_ridge = plt.Rectangle((0, 0), 1, 1, facecolor='lightblue', edgecolor='blue')
 rect_lasso = plt.Rectangle((0, 0), 1, 1, facecolor='red', edgecolor='maroon')
-plt.legend([rect_ridge, rect_lasso], ['ridge error', 'lasso error'])
+rect_traditional = plt.Rectangle((0, 0), 1, 1, facecolor='green', edgecolor='green')
+plt.legend([rect_ridge, rect_lasso, rect_traditional], ['ridge model error', 'lasso model error', 'traditional method error'])
 
 labels = (['{} meters'.format(i) for i in range(1,12)])
-plt.xticks([i+0.5 for i in range(1,23,2)], labels)
-plt.title('Boxplot of errors in different distance')
+plt.xticks([i+1 for i in range(1,34,3)], labels)
+plt.title('Ridge and Lasso model prediction error in different distance')
 plt.ylabel('error(meters)')
 plt.grid()
 plt.show()

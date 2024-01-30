@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.mixture import GaussianMixture
-
+import matplotlib.pyplot as plt
 
 class RegressionNet(nn.Module):
         def __init__(self, input_size, hidden_size, output_size):
@@ -30,14 +30,7 @@ class RegressionNet(nn.Module):
             out = self.fc3(out)
             return out
         
-def neural_network_with_GMM_train(X,Y,sample_times):
-
-    X = torch.from_numpy(X[:,:]).float()
-
-    Y = torch.from_numpy(Y.reshape(11*sample_times,1)).float()
-    #test_x = torch.from_numpy(test_x[:,:]).float()
-    #test_y = torch.from_numpy(test_y.reshape((15,1))).float()
-
+def neural_network_with_GMM_train(X,Y):
     input_size = 10
     hidden_size = 256
     output_size = 1
@@ -77,13 +70,7 @@ def neural_network_predicting(model,test_x):
     predictions = predictions.numpy()
     return predictions
 
-def neural_network_without_GMM_train(X,Y,sample_times):
-    X = torch.from_numpy(X[:,6:]).float()
-
-    Y = torch.from_numpy(Y.reshape(11*sample_times,1)).float()
-    #test_x = torch.from_numpy(test_x[:,6:]).float()
-    #test_y = torch.from_numpy(test_y.reshape((15,1))).float()
-
+def neural_network_without_GMM_train(X,Y):
     input_size = 4
     hidden_size = 256
     output_size = 1
@@ -115,10 +102,124 @@ def neural_network_without_GMM_train(X,Y,sample_times):
 
     return model
     
-def neural_network_predicting(model,test_x):
-    # 在测试集上进行预测
-    with torch.no_grad():
-        predictions = model(test_x)
+def GMM_filter(data):
+    #best_aic,best_bic = compute_number_of_components(data,1,5)
+    #n_components = best_aic  # 设置成分数量
+    n_components = 2
+    gmm = GaussianMixture(n_components=n_components)
+    try:
+        gmm.fit(data)
+    except:
+        lenghts = len(data)
+        gmm.fit(data.reshape((lenghts,1)))
+    means = gmm.means_
+    covariances = gmm.covariances_
+    weights = gmm.weights_
 
-    predictions = predictions.numpy()
+    return means,covariances,weights
+
+def data_process_NN(train_set_file):
+    with open(train_set_file, 'r') as train_file:
+        lines = train_file.readlines()
+
+    X = np.array([0,0,0,0,0,0,0,0,0,0])
+    for i in range(len(lines)):
+        line = lines[i].strip().split(' ')
+        line = [float(num) for num in line]     #200rtt + 200rssi
+
+        means,covariances,weights = GMM_filter(np.array(line)[:200] - 20074.659)
+        
+        rtt_mean = np.mean(line[:200]) - 20074.659
+        rtt_var = np.var(line[:200])
+        rssi_mean = np.mean(line[200:])
+        rssi_var = np.var(line[200:])
+        X = np.vstack((X, np.array([float(means[0][0]),float(covariances[0][0]),float(means[1][0]),float(covariances[1][0]),
+                                    float(weights[0]),float(weights[1]),
+                                    rssi_mean,rssi_var,rtt_mean,rtt_var])))
+
+    X = X[1:,:]  #去掉第一行的0
+    return X
+
+def generate_train_test_y():
+    distance_list = [i for i in range(1,12)]
+    train_y = np.array([0])
+    for distance in distance_list:
+        for j in range(int(len(train_x)/len(distance_list))):
+            train_y = np.vstack((train_y,distance))
+    train_y = train_y[1:,:]
+
+    test_y = np.array([0])
+    for distance in distance_list:
+        for j in range(int(len(test_x)/len(distance_list))):
+            test_y = np.vstack((test_y,distance))
+    test_y = test_y[1:,:]
+    return train_y, test_y
+
+def transform_error(error_array):
+    error_list = []
+    for i in range(11):
+        error_list.append(error_array.reshape(220,)[i*20:(i+1)*20])
+    error_array = np.array(error_list).T
+    return error_array
+
+def traditional_prediction(data):
+    prediction_list = []
+    for i in range(len(data)):
+        prediction = (data[i][8])/2*300000000/16000000*0.4
+        prediction_list.append(np.array(prediction))
+    predictions = np.array(prediction_list)
     return predictions
+
+train_x = data_process_NN('train_set/outdoor_train_set.txt')
+test_x = data_process_NN('test_set/outdoor_test_set.txt')
+
+train_x = data_process_NN('train_set/indoor_with_people_walking_train_set.txt')
+test_x = data_process_NN('test_set/indoor_with_people_walking_test_set.txt')
+
+train_x = data_process_NN('train_set/indoor_without_people_walking_train_set.txt')
+test_x = data_process_NN('test_set/indoor_without_people_walking_test_set.txt')
+
+train_y,test_y = generate_train_test_y()
+
+X = torch.from_numpy(train_x[:,:]).float()
+Y = torch.from_numpy(train_y).float()
+test_X = torch.from_numpy(test_x[:,:]).float()
+test_Y = torch.from_numpy(test_y).float()
+
+X_hat = torch.from_numpy(train_x[:,6:]).float()
+test_X_het = torch.from_numpy(test_x[:,6:]).float()
+
+NN_with_GMM_model = neural_network_with_GMM_train(X,Y)
+NN_without_GMM_model = neural_network_without_GMM_train(X_hat,Y)
+
+NN_with_GMM_predictions = neural_network_predicting(NN_with_GMM_model,test_X)
+NN_without_GMM_predictions = neural_network_predicting(NN_without_GMM_model,test_X_het)
+
+with_GMM_error = NN_with_GMM_predictions - test_y
+with_GMM_error = transform_error(with_GMM_error)
+without_GMM_error = NN_without_GMM_predictions - test_y
+without_GMM_error = transform_error(without_GMM_error)
+
+traditional_predictions = traditional_prediction(test_x)
+traditional_error = traditional_predictions.reshape((220,1)) - test_y
+traditional_error = transform_error(traditional_error)
+
+
+boxprops = dict(facecolor='lightblue', color='blue')
+plt.boxplot(without_GMM_error,positions=[i for i in range(1,34,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
+boxprops = dict(facecolor='red', color='maroon')
+plt.boxplot(with_GMM_error,positions=[i for i in range(2,34,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
+boxprops = dict(facecolor='green', color='green')
+plt.boxplot(traditional_error,positions=[i for i in range(3,34,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
+
+rect_ridge = plt.Rectangle((0, 0), 1, 1, facecolor='lightblue', edgecolor='blue')
+rect_lasso = plt.Rectangle((0, 0), 1, 1, facecolor='red', edgecolor='maroon')
+rect_traditional = plt.Rectangle((0, 0), 1, 1, facecolor='green', edgecolor='green')
+plt.legend([rect_ridge, rect_lasso, rect_traditional], ['ridge model error', 'lasso model error', 'traditional method error'])
+
+labels = (['{} meters'.format(i) for i in range(1,12)])
+plt.xticks([i+1 for i in range(1,33,3)], labels)
+plt.title('Two kinds of NNs prediction error in different distance(indoor environment without people walking)')
+plt.ylabel('error(meters)')
+plt.grid()
+plt.show()
