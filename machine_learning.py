@@ -9,6 +9,7 @@ from sklearn.linear_model import Ridge, Lasso
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 def ridge_training(X,Y):
     ridge_model = Ridge()
@@ -83,12 +84,12 @@ def traditional_prediction(data):
 train_x = data_process_ML('train_set/outdoor_train_set.txt')
 test_x = data_process_ML('test_set/outdoor_test_set.txt')
 
-#train_x = data_process_ML('train_set/indoor_with_people_walking_train_set.txt')
-#test_x = data_process_ML('test_set/indoor_with_people_walking_test_set.txt')
+train_x = data_process_ML('train_set/indoor_with_people_walking_train_set.txt')
+test_x = data_process_ML('test_set/indoor_with_people_walking_test_set.txt')
 
-#train_x = data_process_ML('train_set/indoor_without_people_walking_train_set.txt')
-#test_x = data_process_ML('test_set/indoor_without_people_walking_test_set.txt')
-
+train_x = data_process_ML('train_set/indoor_without_people_walking_train_set.txt')
+test_x = data_process_ML('test_set/indoor_without_people_walking_test_set.txt')
+'''
 train_y,test_y = generate_train_test_y()
 
 ridge_model = ridge_training(train_x,train_y)
@@ -107,22 +108,22 @@ traditional_error = traditional_predictions.reshape((220,1)) - test_y
 traditional_error = transform_error(traditional_error)
 
 
-
 boxprops = dict(facecolor='lightblue', color='blue')
-plt.boxplot(ridge_error,positions=[i for i in range(1,33,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
+plt.violinplot(ridge_error,positions=[i-0.2 for i in range(1,23,2)],showmeans=True,widths=0.3)
 boxprops = dict(facecolor='red', color='maroon')
-plt.boxplot(lasso_error,positions=[i for i in range(2,33,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
-boxprops = dict(facecolor='green', color='green')
-plt.boxplot(traditional_error,positions=[i for i in range(3,34,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
+plt.violinplot(lasso_error,positions=[i+0.2 for i in range(1,23,2)],showmeans=True,widths=0.3)
+#boxprops = dict(facecolor='green', color='green')
+#plt.violinplot(traditional_error,positions=[i+0.5 for i in range(2,34,3)],showmeans=True)
 
 rect_ridge = plt.Rectangle((0, 0), 1, 1, facecolor='lightblue', edgecolor='blue')
-rect_lasso = plt.Rectangle((0, 0), 1, 1, facecolor='red', edgecolor='maroon')
-rect_traditional = plt.Rectangle((0, 0), 1, 1, facecolor='green', edgecolor='green')
-plt.legend([rect_ridge, rect_lasso, rect_traditional], ['ridge model error', 'lasso model error', 'traditional method error'])
+rect_lasso = plt.Rectangle((0, 0), 1, 1, facecolor='orange', edgecolor='orange')
+#rect_traditional = plt.Rectangle((0, 0), 1, 1, facecolor='green', edgecolor='green')
+plt.legend([rect_ridge, rect_lasso], ['ridge model error', 'lasso model error'])
 
 labels = (['{} meters'.format(i) for i in range(1,12)])
-plt.xticks([i+1 for i in range(1,34,3)], labels)
-plt.title('Ridge and Lasso model prediction error in different distance')
+plt.xticks([i+1 for i in range(1,23,2)], labels)
+plt.title('Ridge and Lasso model prediction error in different distance(oindoor environment without people walking)')
 plt.ylabel('error(meters)')
 plt.grid()
 plt.show()
+'''

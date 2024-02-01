@@ -178,7 +178,7 @@ test_x = data_process_NN('test_set/indoor_with_people_walking_test_set.txt')
 
 train_x = data_process_NN('train_set/indoor_without_people_walking_train_set.txt')
 test_x = data_process_NN('test_set/indoor_without_people_walking_test_set.txt')
-
+'''
 train_y,test_y = generate_train_test_y()
 
 X = torch.from_numpy(train_x[:,:]).float()
@@ -205,21 +205,36 @@ traditional_error = traditional_predictions.reshape((220,1)) - test_y
 traditional_error = transform_error(traditional_error)
 
 
+def trimmed_data(error):
+    trimmed_data = []
+    for i in range(error.shape[1]):
+        column_data = error[:, i]  # 取出每一组数据
+        trimmed_column = np.clip(column_data, np.percentile(column_data, 10), np.percentile(column_data, 90))
+        trimmed_data.append(trimmed_column)
+
+    # 转换为numpy数组
+    trimmed_data = np.column_stack(trimmed_data)
+    return trimmed_data
+
+with_GMM_error = trimmed_data(with_GMM_error)
+without_GMM_error = trimmed_data(without_GMM_error)
+traditional_error = trimmed_data(traditional_error)
+
 boxprops = dict(facecolor='lightblue', color='blue')
-plt.boxplot(without_GMM_error,positions=[i for i in range(1,34,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
+plt.violinplot(without_GMM_error,positions=[i-0.2 for i in range(1,23,2)],showmeans=True,widths=0.3)
 boxprops = dict(facecolor='red', color='maroon')
-plt.boxplot(with_GMM_error,positions=[i for i in range(2,34,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
-boxprops = dict(facecolor='green', color='green')
-plt.boxplot(traditional_error,positions=[i for i in range(3,34,3)],patch_artist=True, boxprops=boxprops, showfliers=False)
+plt.violinplot(with_GMM_error,positions=[i+0.2 for i in range(1,23,2)],showmeans=True,widths=0.3)
+#boxprops = dict(facecolor='green', color='green')
+#plt.violinplot(traditional_error,positions=[i for i in range(3,34,3)],showmeans=True)
 
 rect_ridge = plt.Rectangle((0, 0), 1, 1, facecolor='lightblue', edgecolor='blue')
-rect_lasso = plt.Rectangle((0, 0), 1, 1, facecolor='red', edgecolor='maroon')
-rect_traditional = plt.Rectangle((0, 0), 1, 1, facecolor='green', edgecolor='green')
-plt.legend([rect_ridge, rect_lasso, rect_traditional], ['ridge model error', 'lasso model error', 'traditional method error'])
+rect_lasso = plt.Rectangle((0, 0), 1, 1, facecolor='orange', edgecolor='orange')
+plt.legend([rect_ridge, rect_lasso], ['NN without GMM error', 'NN with GMM error'])
 
 labels = (['{} meters'.format(i) for i in range(1,12)])
-plt.xticks([i+1 for i in range(1,33,3)], labels)
+plt.xticks([i for i in range(1,23,2)], labels)
 plt.title('Two kinds of NNs prediction error in different distance(indoor environment without people walking)')
 plt.ylabel('error(meters)')
 plt.grid()
 plt.show()
+'''
