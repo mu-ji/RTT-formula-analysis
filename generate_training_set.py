@@ -1,7 +1,7 @@
 import numpy as np
 import csv
 
-every_distance_sample_number = 200
+every_distance_sample_number = 1000
 distance_list = [i for i in range(1,12)]
 
 one_sample_length = 200
@@ -29,8 +29,8 @@ def sample_data(input_file, output_file, one_sample_length):
 
 #input_file is the raw data
 #output_file is sample data
-input_file = 'experiment3_outdoor/distance{}.txt'
-output_file = 'train_set/outdoor_train_set.txt'
+input_file = 'indoor_without_people/distance{}.txt'
+output_file = 'train_set/indoor_without_people_walking_train_set2.txt'
 
 for distance in distance_list:
     for times in range(every_distance_sample_number):

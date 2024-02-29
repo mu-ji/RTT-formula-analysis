@@ -11,6 +11,8 @@ import torch.optim as optim
 from sklearn.mixture import GaussianMixture
 import matplotlib.pyplot as plt
 
+import multi_GMM_with_NN as MN
+
 class RegressionNet(nn.Module):
         def __init__(self, input_size, hidden_size, output_size):
             super(RegressionNet, self).__init__()
@@ -178,7 +180,7 @@ test_x = data_process_NN('test_set/indoor_with_people_walking_test_set.txt')
 
 train_x = data_process_NN('train_set/indoor_without_people_walking_train_set.txt')
 test_x = data_process_NN('test_set/indoor_without_people_walking_test_set.txt')
-'''
+
 train_y,test_y = generate_train_test_y()
 
 X = torch.from_numpy(train_x[:,:]).float()
@@ -220,21 +222,53 @@ with_GMM_error = trimmed_data(with_GMM_error)
 without_GMM_error = trimmed_data(without_GMM_error)
 traditional_error = trimmed_data(traditional_error)
 
-boxprops = dict(facecolor='lightblue', color='blue')
-plt.violinplot(without_GMM_error,positions=[i-0.2 for i in range(1,23,2)],showmeans=True,widths=0.3)
-boxprops = dict(facecolor='red', color='maroon')
-plt.violinplot(with_GMM_error,positions=[i+0.2 for i in range(1,23,2)],showmeans=True,widths=0.3)
-#boxprops = dict(facecolor='green', color='green')
-#plt.violinplot(traditional_error,positions=[i for i in range(3,34,3)],showmeans=True)
 
-rect_ridge = plt.Rectangle((0, 0), 1, 1, facecolor='lightblue', edgecolor='blue')
-rect_lasso = plt.Rectangle((0, 0), 1, 1, facecolor='orange', edgecolor='orange')
-plt.legend([rect_ridge, rect_lasso], ['NN without GMM error', 'NN with GMM error'])
+
+train_x = MN.data_process_NN('train_set/indoor_with_people_walking_train_set.txt')
+test_x = MN.data_process_NN('test_set/indoor_with_people_walking_test_set.txt')
+
+train_x = MN.data_process_NN('train_set/indoor_without_people_walking_train_set.txt')
+test_x = MN.data_process_NN('test_set/indoor_without_people_walking_test_set.txt')
+
+X = torch.from_numpy(train_x[:,:]).float()
+Y = torch.from_numpy(train_y).float()
+test_X = torch.from_numpy(test_x[:,:]).float()
+test_Y = torch.from_numpy(test_y).float()
+
+NN_with_multi_GMM_model = MN.neural_network_with_GMM_train(X,Y)
+NN_with_multi_GMM_predictions = MN.neural_network_predicting(NN_with_multi_GMM_model,test_X)
+
+with_multi_GMM_error = NN_with_multi_GMM_predictions - test_y
+with_multi_GMM_error = MN.transform_error(with_multi_GMM_error)
+
+def trimmed_data(error):
+    trimmed_data = []
+    for i in range(error.shape[1]):
+        column_data = error[:, i]  # 取出每一组数据
+        trimmed_column = np.clip(column_data, np.percentile(column_data, 10), np.percentile(column_data, 90))
+        trimmed_data.append(trimmed_column)
+
+    # 转换为numpy数组
+    trimmed_data = np.column_stack(trimmed_data)
+    return trimmed_data
+
+with_multi_GMM_error = trimmed_data(with_multi_GMM_error)
+
+boxprops = dict(facecolor='lightblue', color='blue')
+plt.violinplot(without_GMM_error,positions=[i-0.4 for i in range(1,23,2)],showmeans=True,widths=0.3)
+boxprops = dict(facecolor='red', color='maroon')
+plt.violinplot(with_GMM_error,positions=[i+0.4 for i in range(1,23,2)],showmeans=True,widths=0.3)
+boxprops = dict(facecolor='green', color='green')
+plt.violinplot(with_multi_GMM_error,positions=[i for i in range(1,23,2)],showmeans=True,widths=0.3)
+
+rect_1 = plt.Rectangle((0, 0), 1, 1, facecolor='lightblue', edgecolor='blue')
+rect_2 = plt.Rectangle((0, 0), 1, 1, facecolor='orange', edgecolor='orange')
+rect_3 = plt.Rectangle((0, 0), 1, 1, facecolor='green', edgecolor='green')
+plt.legend([rect_1, rect_2, rect_3], ['NN without GMM error','NN with multi GMM error', 'NN with GMM error'])
 
 labels = (['{} meters'.format(i) for i in range(1,12)])
 plt.xticks([i for i in range(1,23,2)], labels)
-plt.title('Two kinds of NNs prediction error in different distance(indoor environment without people walking)')
+plt.title('Three kinds of NNs prediction error in different distance(indoor environment without people walking)')
 plt.ylabel('error(meters)')
 plt.grid()
 plt.show()
-'''
